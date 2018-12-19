@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<link rel="icon" 
+      type="image/png" 
+      href="ikoni.png">
+      
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="iso-8859-1">
+
+<style>
+
+td {
+    color: #000;
+    font-weight: bold;
+    background: #ddd;
+    border-radius: 0px;
+    width: 16px;
+    height: 16px;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    font-size: 10px;
+}
+
+td.current-block {
+    background: #888;
+}
+
+td.current-sel {
+    background: #888;
+}
+
+td:hover {
+    background: #eee;
+}
+
+.hl-panel {
+    background: #f00;
+}
+
+.hl-door {
+    background: #0a0;
+}
+
+.hl-wall {
+    background: #aaa;
+}
+
+.hl-start {
+    background: #f80;
+}
+
+</style>
+
+<title>Level editor</title>
+</head>
+
+<body>
+
+<script src="jquery-1.12.4.min.js"></script>
+
+<script>
+
+const NUM_ROWS = 32;
+const NUM_COLS = 32;
+
+$( document ).ready(function() {
+    init();
+});
+
+function init()
+{
+    makeMap();
+    restore();
+
+    $("#map td").click(function() {
+        $("td").removeClass("current-block");
+        $(this).addClass("current-block");
+        update();
+    });
+    
+    $("#block_type td").click(function() {
+        var type = $(this).data("type");
+        if (type != "")
+        {
+            setBlock(type);
+        }
+    });
+    
+    $("#texture td").click(function() {
+        var tex = $(this).data("id");
+        setTexture(tex);
+    });
+
+    $("#global_action td").click(function() {
+        switch ($(this).html()) {
+
+        case "Clear":
+            clear();
+            break;
+        case "Restore":
+            restore();
+            break;
+        case "Save":
+            save();
+            break;
+        }
+    });
+    
+    $("#attrib").change(function() {
+        setAttribute($(this).val());
+    });
+    
+    $("body").on('keydown', (event) => {
+        if (event.target.id == "attrib")
+        {
+            event.stopPropagation();
+            return; 
+        }
+    
+        switch (event.key) {
+        
+        case "ArrowLeft":
+        case "ArrowRight":
+        case "ArrowUp":
+        case "ArrowDown":
+            move(undefined, event.key);
+            update();
+            break;           
+        case " ":
+            setBlock(" ");
+            break;
+        case "x":
+            setBlock("X");
+            break;
+        case "v":
+            setBlock("V");
+            break;
+        case "h":
+            setBlock("H");
+            break;
+        case "d":
+            setBlock("|");
+            break;
+        case "D":
+            setBlock("-");
+            break;
+        case "s":
+            setBlock("S");
+            break;
+        case "p":
+            setBlock("P");
+            break;
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+            setTexture(event.key);
+            break;
+        default:
+            break;
+        }
+    });
+}
+
+// 
+// 32-bit attributes
+// 
+// fecbbbaa
+// ||||  |__ texture
+// ||||_____ target block
+// |||______ interact function
+// ||_______ not used
+// |________ lock counter
+//
+  
+const INTERACT_NONE     = (0<<20)
+const INTERACT_DOOR     = (1<<20)
+const INTERACT_CODE     = (2<<20)
+const INTERACT_SECRET   = (3<<20)
+const INTERACT_KEY      = (4<<20)
+  
+const DEFAULT_ATTRIBUTES = {
+    " ": 0,
+    "X": 1,
+    "V": 1,
+    "H": 1,
+    "|": 4 | INTERACT_DOOR,
+    "-": 4 | INTERACT_DOOR,
+    'P': 8 | INTERACT_CODE
+};
+
+const HTML_CLASSES = {
+    "X": "hl-wall",
+    "V": "hl-wall",
+    "H": "hl-wall",
+    "|": "hl-door",
+    "-": "hl-door",
+    'P': "hl-panel",
+    'S': "hl-start"
+};
+
+var attributes = [];
+
+function setBlock(type, block, doUpdate=true)
+{
+    if (!block)
+    {
+        block = $(".current-block");
+    }
+    
+    block.html(type);
+    block.removeClass(Object.values(HTML_CLASSES).join(" "));
+    block.addClass(HTML_CLASSES[type]);
+    
+    var id = parseInt(block.data("id"));
+    attributes[id] = DEFAULT_ATTRIBUTES[type];
+
+    if (doUpdate)
+    {
+        update();
+        move(block, type);
+    }
+}
+
+function setAttribute(attr)
+{
+    attr = parseInt(attr, 16);
+    var block = $(".current-block");
+    var id = parseInt(block.data("id"));
+    attributes[id] = attr;
+    update();
+}
+
+function setTexture(tex)
+{
+    tex = parseInt(tex);
+    if (tex != -1)
+    {
+        var block = $(".current-block");
+        var id = parseInt(block.data("id"));
+        attributes[id] = (attributes[id] & 0xffffff00) + tex;
+        update();
+    }
+}
+
+function update()
+{
+    var block = $(".current-block");
+    var type = block.html();
+    
+    $("#block_type td").each(function() {
+        $(this).removeClass("current-sel");
+        if ($(this).data("type") == type)
+        {
+            $(this).addClass("current-sel");
+        }
+    });
+    
+    var id = parseInt(block.data("id"));
+    var tex = attributes[id];
+
+    $("#texture td").each(function() {
+        $(this).removeClass("current-sel");
+        if ($(this).data("id") == (tex & 0xff))
+        {
+            $(this).addClass("current-sel");
+        }
+    });
+    
+    var hex = tex.toString(16);
+    if (hex.length < 8)
+    {
+        hex = "00000000".substr(hex.length)+hex;
+    }
+    
+    $("#attrib").val(hex);
+    $("#blocknbr").html(id + "&nbsp;(" + id.toString(16) + ")");
+}
+
+function move(block, type)
+{
+    if (!block)
+    {
+        block = $(".current-block");
+    }
+
+    var oldId = id;
+    var id = block.data("id");
+    
+    switch (type) {
+    
+    case "ArrowUp":
+        id -= NUM_COLS;
+        break;
+
+    case "ArrowDown":
+    case "V":
+        id += NUM_COLS;
+        break;
+
+    case "ArrowLeft":
+        id -= 1;
+        break;
+    
+    case "ArrowRight":
+    case "H":
+    case "X":
+    case " ":
+    case '-':
+    case '|':
+    case 'P':
+        id += 1;
+        break;
+        
+    default:
+        return;
+    }
+    
+    if (id < 0 || id > (NUM_ROWS*NUM_ROWS-1) || id == oldId)
+    {
+        return;
+    }
+    
+    $("#map td").each(function() {
+        $(this).removeClass("current-block");
+        if ($(this).data("id") == id)
+        {
+            $(this).addClass("current-block");
+        }
+    });
+}
+
+function save()
+{   
+    var data = "";
+    $("#map td").each(function() {
+        data += $(this).html();
+    });
+    
+    localStorage.setItem("map_data", data);
+    localStorage.setItem("map_attributes", attributes);
+    localStorage.setItem("map_w", NUM_COLS);
+    localStorage.setItem("map_h", NUM_ROWS);
+}
+
+function restore()
+{
+    var data = localStorage.getItem("map_data");
+    if (data != null)
+    {
+        var i = 0;
+        
+        $("#map td").each(function() {
+            var type = data[i++];
+            setBlock(type, $(this), false);
+        });
+    }
+
+    data = localStorage.getItem("map_attributes");
+    if (data != null)
+    {
+        attributes = [];
+        data.split(",").forEach(function(elem) {
+            attributes.push(parseInt(elem));
+        });
+    }        
+}
+
+function clear()
+{
+    attributes = [];
+    $("#map td").each(function() {
+        setBlock(" ", $(this), false);
+        var id = parseInt($(this).data("id"));
+        attributes[id] = 0;
+    });
+}
+
+function makeMap()
+{
+    $("#map").empty();
+    var id = 0;
+    
+    for (var i = 0; i < NUM_ROWS; i++)
+    {
+        var row = "<tr>";
+        for (var j = 0; j < NUM_COLS; j++)
+        {
+            row += `<td data-id="${id}"> </td>`;
+            attributes[id] = 0;
+            id++;
+        }
+        row += "</tr>";
+        $("#map").append(row);
+    }
+}
+
+</script>
+
+<table id="global_action">
+<tr>
+    <td>Clear</td>
+    <td>Restore</td>
+    <td>Save</td>
+</tr>
+</table>
+
+<table id="block_type">
+<tr>
+    <td data-type=" ">Empty</td>
+    <td data-type="X">Full wall</td>
+    <td data-type="V">Vertical wall</td>
+    <td data-type="H">Horizontal wall</td>
+    <td data-type="|">Vertical door</td>
+    <td data-type="-">Horizontal door</td>
+    <td data-type="S">Start at</td>
+    <td data-type="P">Code panel</td>
+    <td data-type="">Block&nbsp;nbr: <span id="blocknbr" style="text-align:center">-</span></td>
+</tr>
+</table>
+
+<table id="texture">
+<tr>
+    <td data-id="1">wall</td>
+    <td data-id="2">ournament</td>
+    <td data-id="3">open door</td>
+    <td data-id="4">closed door</td>
+    <td data-id="6">open door red</td>
+    <td data-id="5">closed door red</td>
+    <td data-id="7">code panel ok</td>
+    <td data-id="8">code panel fail</td>
+    <td data-id="-1">attributes: <input id="attrib" style="text-align:center" type="text"></td>
+</tr>
+</table>
+
+<table id="map">
+</table>
+
+</body>
+</html>
