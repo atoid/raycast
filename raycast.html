@@ -1,61 +1,11 @@
+<!DOCTYPE html>
 <html>
+<!-- Kiky-maze (c) 2018 Matti Kantola apophis@kajaani.net -->
+
 <head>
-<style>
-canvas {
-    background-color: #000000;
-    display: inline-block;
-}
-
-div {
-    display: inline-block;
-    user-select: none;
-}
-
-body {
-    background-color: #000000;
-}
-
-div.game-status {
-    vertical-align: top;
-}
-
-div.game-time-title {
-    width: calc(3 * 64px);
-    text-align: center;
-    font-size: 12px;
-    color: white;
-}
-
-div.game-time {
-    width: calc(3 * 64px);
-    text-align: center;
-    font-size: 40px;
-    color: white;
-}
-
-.hl-input {
-    background-color: #006;
-    border-radius: 8px;
-}
-
-.ctrl-arrow {
-    width: 64px;
-    height: 64px;
-}
-
-.img-up {
-    transform: rotate(-90deg);
-}
-
-.img-left {
-    transform: rotate(-180deg);
-}
-
-.img-down {
-    transform: rotate(90deg);
-}
-
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="iso-8859-1">
+<link rel="stylesheet" type="text/css" href="raycast.css">
 </head>
 
 <body onload="init()">
@@ -67,6 +17,7 @@ div.game-time {
 "use strict";
 
 const DBGLEVEL = 2;
+const DISABLE_LOCKS = false;
 
 const COLLISION_MARGIN = 4;
 const RAY_MARGIN = 580;
@@ -95,7 +46,10 @@ var interacts = [
     interact_End
 ];
 var keys = [];
-var keys_repeat = [];
+var keysRepeat = [];
+var gameTime = "00:00:00";
+var gameStarted = false;
+var gameCompleted = false;
 
 function DBG(m, level)
 {
@@ -160,7 +114,7 @@ class Map {
             target: (attr >> 8) & 0xfff,
             interact: interacts[(attr >> 20) & 0xf],
             tbd: (attr >> 24) & 0xf,
-            lock: (attr >> 28) & 0xf
+            lock: DISABLE_LOCKS ? 0 : (attr >> 28) & 0xf
         }   
     }
     
@@ -627,6 +581,7 @@ function interact_Door(b)
     else
     {
         playSample(4);
+        addMessage("Ovi on lukossa");
     }
 }
 
@@ -654,11 +609,13 @@ function interact_Panel(b)
             tgtAttr.lock++;
         }
 
+        addMessage(code == codeOk ? "Oikea koodi" : "Väärä koodi");
+
         // prompt steals focus
         keys[4] = false;
-        keys_repeat[4] = false;
+        keysRepeat[4] = false;
 
-        console.log("Lock: " + tgtAttr.lock);
+        DBG("Lock: " + tgtAttr.lock);
     });
 }
 
@@ -684,6 +641,7 @@ function interact_Secret(b)
                 clearInterval(iv);
             }
         }, 50);
+        addMessage("Salakäytävä!");
     }
     else
     {
@@ -707,6 +665,7 @@ function interact_Item(b)
     b.l4.ray = 0;
 
     playSample(6);
+    addMessage("Avain vapauteen!");
 }
 
 function interact_End(b)
@@ -716,10 +675,12 @@ function interact_End(b)
     var attr = b.block.attr;
     if (attr.lock == 0)
     {
+        gameCompleted = true;
         var tex = textures[attr.texture];
         attr.texture = tex.alt;
         attr.lock = -1;
         playSample(7);
+        addMessage("Selvisit ulos!");
     }
 
     if (attr.lock > 0)
@@ -768,159 +729,17 @@ function playSample(id, callback)
     elem.play();
 }
 
-function init()
+function addMessage(msg)
 {
-    console.log("Params: " + document.location.hash);
-    var params = document.location.hash.substr(1).split(":");
-    for (var i in params)
-    {
-        eval(params[i]);
-    }
-    
-    var elem = document.getElementById("myCanvas");
-    elem.width = width;
-    elem.height = height;
-    ctx = elem.getContext("2d");
-    
-    ceilingGradient = ctx.createLinearGradient(0, 0, 0, 300);
-    ceilingGradient.addColorStop(0, "blue");
-    ceilingGradient.addColorStop(0.9, "black");
+    var r1 = document.getElementById("row_1");
+    var r2 = document.getElementById("row_2");
+    var r3 = document.getElementById("row_3");
+    var r4 = document.getElementById("row_4");
 
-    floorGradient = ctx.createLinearGradient(0, 300, 0, height);
-    floorGradient.addColorStop(0.1, "black");
-    floorGradient.addColorStop(1, "white");
-    
-    camera = new Camera();
-    getLevel();
-    map = new Map(mapData, camera);
-    
-    var angle = 0;
-    var bgSample = false;
-
-    setInterval(function() {
-        handleInputs();
-        camera.rotate(angle);
-    }, 50);
-    
-    setInterval(function() {
-        draw(false, true);
-    }, 20);
-
-    function handleInputs()
-    {
-        if (keys[0])
-        {
-            angle -= TURN_SPEED;
-        }
-        if (keys[1])
-        {
-            angle += TURN_SPEED;
-        }
-        if (keys[2])
-        {
-            moveCamera(MOVE_FWD_SPEED, angle);
-        }
-        if (keys[3])
-        {
-            moveCamera(MOVE_REV_SPEED, angle);
-        }
-        
-        if (keys[4] && !keys_repeat[4])
-        {
-            var b = map.intersect(camera.getCenterRay(), 1)[0];
-            if (b && b.d <= INTERACT_MARGIN && b.block.attr.interact)
-            {
-                b.block.attr.interact(b);
-            }
-            keys_repeat[4] = true;
-        }
-        
-        for (var id = 0 ; id < 5; id++)
-        {
-            var hl = keys[id];
-            var elem = document.getElementById("ctrl_" + id);
-            elem.className = hl ? "hl-input" : "";
-        }
-    }
-    
-    document.addEventListener('keydown', (event) => {
-        if (!bgSample)
-        {
-            playSample(1);
-            bgSample = true;
-        }
-    
-        switch (event.key) {
-        
-        case "ArrowLeft":
-            keys[0] = true;
-            break;
-        case "ArrowRight":
-            keys[1] = true;
-            break;
-        case "ArrowUp":
-            keys[2] = true;
-            break;
-        case "ArrowDown":
-            keys[3] = true;
-            break;
-        case " ":
-            keys[4] = true;
-            break;
-        default:
-            break;
-        }
-    });
-
-    document.addEventListener('keyup', (event) => {
-        switch (event.key) {
-        
-        case "ArrowLeft":
-            keys[0] = false;
-            break;
-        case "ArrowRight":
-            keys[1] = false;
-            break;
-        case "ArrowUp":
-            keys[2] = false;
-            break;
-        case "ArrowDown":
-            keys[3] = false;
-            break;
-        case " ":
-            keys[4] = false;
-            keys_repeat[4] = false;
-            break;
-        default:
-            break;
-        }
-    });
-    
-    textures[1] = {tx: document.getElementById("tx_wall"), mask: document.getElementById("tx_wall_mask")};
-    textures[2] = {tx: document.getElementById("tx_ournament"), mask: document.getElementById("tx_wall_mask")};
-    textures[3] = {tx: document.getElementById("tx_door_open"), mask: document.getElementById("tx_door_open_mask"), alt: 4, pass: true};
-    textures[4] = {tx: document.getElementById("tx_door"), mask: document.getElementById("tx_wall_mask"), alt: 3};
-    textures[5] = {tx: document.getElementById("tx_door_red"), mask: document.getElementById("tx_wall_mask"), alt: 6};
-    textures[6] = {tx: document.getElementById("tx_door_open"), mask: document.getElementById("tx_door_open_mask"), alt: 5, pass: true};
-    textures[7] = {tx: document.getElementById("tx_code_ok"), mask: document.getElementById("tx_wall_mask"), alt: 7, default: 8};
-    textures[8] = {tx: document.getElementById("tx_code_fail"), mask: document.getElementById("tx_wall_mask"), alt: 7, default: 8};
-    textures[9] = {tx: document.getElementById("tx_avain"), mask: document.getElementById("tx_avain_mask"), pass: true};
-
-    samples[1] = {snd: document.getElementById("snd_wind"), volume: 0.1, loop: true};
-    samples[2] = {snd: document.getElementById("snd_door"), volume: 0.7};
-    samples[3] = {snd: document.getElementById("snd_code"), volume: 0.7};
-    samples[4] = {snd: document.getElementById("snd_locked"), volume: 0.6};
-    samples[5] = {snd: document.getElementById("snd_secret"), volume: 0.6};
-    samples[6] = {snd: document.getElementById("snd_item"), volume: 0.6};
-    samples[7] = {snd: document.getElementById("snd_end"), volume: 0.6};
-    
-    registerMouseEvents(0);
-    registerMouseEvents(1);
-    registerMouseEvents(2);
-    registerMouseEvents(3);
-    registerMouseEvents(4);
-    
-    console.log("Init complete");
+    r1.innerHTML = r2.innerHTML;
+    r2.innerHTML = r3.innerHTML;
+    r3.innerHTML = r4.innerHTML;
+    r4.innerHTML = msg;
 }
 
 function getLevel()
@@ -1000,32 +819,241 @@ function onControls(event, id, active)
 {
     if (active)
     {
+        beginGame();
         keys[id] = true;
     }
     else
     {
         keys[id] = false;
-        keys_repeat[4] = false;
+        keysRepeat[4] = false;
     }
 }
 
+function beginGame()
+{
+    if (!gameStarted)
+    {
+        playSample(1);
+        gameStarted = true;
+        gameCompleted = false;
+        gameTime = new Date();
+    }
+}
+
+function getTimeStr(d)
+{
+    d = Math.round(d/1000);
+    var sec = d % 60;
+    var min = Math.floor(d/60) % 60;
+    var hr = Math.floor(d/3600);
+
+    var str = (hr < 10 ? "0" : "") + hr + ":";
+    str += (min < 10 ? "0" : "") + min + ":";
+    str += (sec < 10 ? "0" : "") + sec;
+    return str;
+}
+
+function init()
+{
+    console.log("Params: " + document.location.hash);
+    var params = document.location.hash.substr(1).split(":");
+    for (var i in params)
+    {
+        eval(params[i]);
+    }
+    
+    var elem = document.getElementById("myCanvas");
+    elem.width = width;
+    elem.height = height;
+    ctx = elem.getContext("2d");
+    
+    ceilingGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    ceilingGradient.addColorStop(0, "blue");
+    ceilingGradient.addColorStop(0.9, "black");
+
+    floorGradient = ctx.createLinearGradient(0, 300, 0, height);
+    floorGradient.addColorStop(0.1, "black");
+    floorGradient.addColorStop(1, "white");
+    
+    camera = new Camera();
+    getLevel();
+    map = new Map(mapData, camera);
+    
+    var angle = 0;
+
+    setInterval(function() {
+        handleInputs();
+        camera.rotate(angle);
+    }, 50);
+    
+    setInterval(function() {
+        draw(false, true);
+    }, 20);
+
+    setInterval(function() {
+        if (gameStarted && !gameCompleted)
+        {
+            var now = new Date();
+            var d = new Date(now - gameTime);
+            var elem = document.getElementById("game_time");
+            elem.innerHTML = getTimeStr(d);
+        }
+    }, 500);
+    
+    function handleInputs()
+    {
+        if (keys[0])
+        {
+            angle -= TURN_SPEED;
+        }
+        if (keys[1])
+        {
+            angle += TURN_SPEED;
+        }
+        if (keys[2])
+        {
+            moveCamera(MOVE_FWD_SPEED, angle);
+        }
+        if (keys[3])
+        {
+            moveCamera(MOVE_REV_SPEED, angle);
+        }
+        
+        if (keys[4] && !keysRepeat[4])
+        {
+            var b = map.intersect(camera.getCenterRay(), 1)[0];
+            if (b && b.d <= INTERACT_MARGIN && b.block.attr.interact)
+            {
+                b.block.attr.interact(b);
+            }
+            keysRepeat[4] = true;
+        }
+        
+        for (var id = 0 ; id < 5; id++)
+        {
+            var hl = keys[id];
+            var elem = document.getElementById("ctrl_" + id);
+            elem.className = hl ? "hl-input" : "";
+        }
+    }
+    
+    document.addEventListener('keydown', function(event) {
+        beginGame();
+    
+        switch (event.key) {
+        
+        case "ArrowLeft":
+        case "a":
+            keys[0] = true;
+            break;
+        case "ArrowRight":
+        case "d":
+            keys[1] = true;
+            break;
+        case "ArrowUp":
+        case "w":
+            keys[2] = true;
+            break;
+        case "ArrowDown":
+        case "s":
+            keys[3] = true;
+            break;
+        case " ":
+        case "e":
+            keys[4] = true;
+            break;
+        default:
+            break;
+        }
+    });
+
+    document.addEventListener('keyup', function(event) {
+        switch (event.key) {
+        
+        case "ArrowLeft":
+        case "a":
+            keys[0] = false;
+            break;
+        case "ArrowRight":
+        case "d":
+            keys[1] = false;
+            break;
+        case "ArrowUp":
+        case "w":
+            keys[2] = false;
+            break;
+        case "ArrowDown":
+        case "s":
+            keys[3] = false;
+            break;
+        case " ":
+        case "e":
+            keys[4] = false;
+            keysRepeat[4] = false;
+            break;
+        default:
+            break;
+        }
+    });
+    
+    textures[1] = {tx: document.getElementById("tx_wall"), mask: document.getElementById("tx_wall_mask")};
+    textures[2] = {tx: document.getElementById("tx_ournament"), mask: document.getElementById("tx_wall_mask")};
+    textures[3] = {tx: document.getElementById("tx_door_open"), mask: document.getElementById("tx_door_open_mask"), alt: 4, pass: true};
+    textures[4] = {tx: document.getElementById("tx_door"), mask: document.getElementById("tx_wall_mask"), alt: 3};
+    textures[5] = {tx: document.getElementById("tx_door_red"), mask: document.getElementById("tx_wall_mask"), alt: 6};
+    textures[6] = {tx: document.getElementById("tx_door_open"), mask: document.getElementById("tx_door_open_mask"), alt: 5, pass: true};
+    textures[7] = {tx: document.getElementById("tx_code_ok"), mask: document.getElementById("tx_wall_mask"), alt: 7, default: 8};
+    textures[8] = {tx: document.getElementById("tx_code_fail"), mask: document.getElementById("tx_wall_mask"), alt: 7, default: 8};
+    textures[9] = {tx: document.getElementById("tx_avain"), mask: document.getElementById("tx_avain_mask"), pass: true};
+
+    samples[1] = {snd: document.getElementById("snd_wind"), volume: 0.1, loop: true};
+    samples[2] = {snd: document.getElementById("snd_door"), volume: 0.7};
+    samples[3] = {snd: document.getElementById("snd_code"), volume: 0.7};
+    samples[4] = {snd: document.getElementById("snd_locked"), volume: 0.6};
+    samples[5] = {snd: document.getElementById("snd_secret"), volume: 0.6};
+    samples[6] = {snd: document.getElementById("snd_item"), volume: 0.6};
+    samples[7] = {snd: document.getElementById("snd_end"), volume: 0.6};
+    
+    registerMouseEvents(0);
+    registerMouseEvents(1);
+    registerMouseEvents(2);
+    registerMouseEvents(3);
+    registerMouseEvents(4);
+    
+    console.log("Init complete");
+}
+
 </script>
+
 <div>
   <canvas id="myCanvas"></canvas>
 </div>
 <div class="game-status">
-  <div class="game-time-title">TIME</div>
+  <div class="game-time-title">AIKA</div>
   <br>
-  <div class="game-time">00:00:00</div>
+  <div id="game_time" class="game-time">00:00:00</div>
   <br>
   <br>
+  <div class="game-time-title">VIESTIT</div>
+  <br>
+  <table class="game-messages">
+    <tr><td id="row_1">Escape</td></tr>
+    <tr><td id="row_2">Castle</td></tr>
+    <tr><td id="row_3">of</td></tr>
+    <tr><td id="row_4">Bittiumstein</td></tr>
+  </table>
+  <br>
+  <br>
+  <br>
+  <br>
+  <div class="game-time-title">OHJAUS</div>
   <br>
   <div class="ctrl-arrow"></div>
   <div id="ctrl_2">
     <img draggable="false" class="img-up" src="img/arrow.png">
   </div>
   <div id="ctrl_4">
-    <img draggable="false" class="img-up" src="img/hit.png">
+    <img draggable="false" src="img/hit.png">
   </div>
   <br>
   <div id="ctrl_0">
