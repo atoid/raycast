@@ -106,6 +106,10 @@ function init()
         case "Save":
             save();
             break;
+        case "Download":
+            var name = prompt("Level filename");
+            saveAsJson(name);
+            break;
         }
     });
     
@@ -402,6 +406,44 @@ function makeMap()
     }
 }
 
+function saveAsJson(filename)
+{
+    var data = "";
+    
+    $("#map td").each(function() {
+        data += $(this).html();
+    });
+
+    var json = {
+        blocks: [],
+        attributes: attributes,
+        width: NUM_COLS,
+        height: NUM_ROWS
+    }
+    
+    while (data != "")
+    {
+        var row = data.substr(0, NUM_COLS);
+        data = data.substr(NUM_COLS);
+        json.blocks.push(row);
+    }
+   
+    var varName = "var " + filename + " = ";
+   
+    var blob = new Blob([varName + JSON.stringify(json, null, 2)], {type : 'application/json'});
+
+    var a = document.createElement("a"),
+            url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);  
+    }, 0);     
+}
+
 </script>
 
 <table id="global_action">
@@ -409,6 +451,7 @@ function makeMap()
     <td>Clear</td>
     <td>Restore</td>
     <td>Save</td>
+    <td>Download</td>
 </tr>
 </table>
 

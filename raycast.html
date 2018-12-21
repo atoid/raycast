@@ -3,21 +3,70 @@
 <style>
 canvas {
     background-color: #000000;
+    display: inline-block;
+}
+
+div {
+    display: inline-block;
+    user-select: none;
 }
 
 body {
     background-color: #000000;
 }
 
+div.game-status {
+    vertical-align: top;
+}
+
+div.game-time-title {
+    width: calc(3 * 64px);
+    text-align: center;
+    font-size: 12px;
+    color: white;
+}
+
+div.game-time {
+    width: calc(3 * 64px);
+    text-align: center;
+    font-size: 40px;
+    color: white;
+}
+
+.hl-input {
+    background-color: #006;
+    border-radius: 8px;
+}
+
+.ctrl-arrow {
+    width: 64px;
+    height: 64px;
+}
+
+.img-up {
+    transform: rotate(-90deg);
+}
+
+.img-left {
+    transform: rotate(-180deg);
+}
+
+.img-down {
+    transform: rotate(90deg);
+}
+
 </style>
 </head>
 
 <body onload="init()">
+
+<script src="level1.js"></script>
+
 <script>
 
 "use strict";
 
-const DBGLEVEL = 2
+const DBGLEVEL = 2;
 
 const COLLISION_MARGIN = 4;
 const RAY_MARGIN = 580;
@@ -28,10 +77,12 @@ const NEAR_MARGIN = 400;
 const INTERACT_MARGIN = 300;
 const MOVE_FWD_SPEED = 3;
 const MOVE_REV_SPEED = -3;
-const TURN_SPEED = (Math.PI/50)
+const TURN_SPEED = (Math.PI/50);
+const NUM_RAYS = 500;
 
 var camera;
 var map;
+var mapData = [];
 var attributes = [];
 var textures = [];
 var samples = [];
@@ -54,27 +105,10 @@ function DBG(m, level)
     }
 }
 
-var mapData = [
-    "HHHHHHHHHHHHHHHH",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V      S       V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "V              V",
-    "HHHHHHHHHHHHHHHH",
-];
-
-var width = window.innerWidth-20;
-var height = Math.floor(1.0*window.innerHeight)-20;
+//var width = window.innerWidth-20;
+//var height = Math.floor(1.0*window.innerHeight)-20;
+var width = NUM_RAYS*2 + 30;
+var height = 600;
 var ctx;
 var floorGradient;
 var ceilingGradient;
@@ -328,6 +362,7 @@ class Map {
         if (blocks)
         {
             this.drawBlocks();
+            camera.draw();
         }   
 
         if (!cast)
@@ -373,7 +408,7 @@ class Camera {
     {
         console.log("Camera()");
     
-        this.numRays = 500;
+        this.numRays = NUM_RAYS;
         this.width = Math.PI / 6;
         this.pdist = 40;
         this.angle = 0;
@@ -382,6 +417,7 @@ class Camera {
         this.po = {};
         this.xPos = 0;
         this.yPos = 0;
+        this.rotate(0);
     }
     
     move(x, y)
@@ -745,7 +781,7 @@ function init()
     elem.width = width;
     elem.height = height;
     ctx = elem.getContext("2d");
-
+    
     ceilingGradient = ctx.createLinearGradient(0, 0, 0, 300);
     ceilingGradient.addColorStop(0, "blue");
     ceilingGradient.addColorStop(0.9, "black");
@@ -755,43 +791,21 @@ function init()
     floorGradient.addColorStop(1, "white");
     
     camera = new Camera();
-    var angle = 0;
-    
-    var data = localStorage.getItem("map_data");
-    if (data != null)
-    {
-        var map_w = parseInt(localStorage.getItem("map_w"));
-        var map_h = parseInt(localStorage.getItem("map_h"));
-        var offset = 0;
-        mapData = [];
-        for (var i = 0; i < map_h; i++)
-        {
-            var l = data.substr(offset, map_w);
-            mapData.push(l);
-            offset += map_w;
-        }
-    }
-
-    data = localStorage.getItem("map_attributes");
-    if (data != null)
-    {
-        attributes = [];
-        data.split(",").forEach(function(elem) {
-            attributes.push(parseInt(elem));
-        });
-    }        
-    
+    getLevel();
     map = new Map(mapData, camera);
-        
-    setInterval(function() {
-        camera.rotate(angle);
-        draw(true, true);
-    }, 20);
     
+    var angle = 0;
+    var bgSample = false;
+
     setInterval(function() {
         handleInputs();
+        camera.rotate(angle);
     }, 50);
     
+    setInterval(function() {
+        draw(false, true);
+    }, 20);
+
     function handleInputs()
     {
         if (keys[0])
@@ -820,9 +834,14 @@ function init()
             }
             keys_repeat[4] = true;
         }
+        
+        for (var id = 0 ; id < 5; id++)
+        {
+            var hl = keys[id];
+            var elem = document.getElementById("ctrl_" + id);
+            elem.className = hl ? "hl-input" : "";
+        }
     }
-
-    var bgSample = false;
     
     document.addEventListener('keydown', (event) => {
         if (!bgSample)
@@ -895,7 +914,48 @@ function init()
     samples[6] = {snd: document.getElementById("snd_item"), volume: 0.6};
     samples[7] = {snd: document.getElementById("snd_end"), volume: 0.6};
     
+    registerMouseEvents(0);
+    registerMouseEvents(1);
+    registerMouseEvents(2);
+    registerMouseEvents(3);
+    registerMouseEvents(4);
+    
     console.log("Init complete");
+}
+
+function getLevel()
+{
+    // from level.js
+    mapData = level1.blocks;
+    attributes = level1.attributes;
+
+    // directly from level editor
+    if (localStorage.getItem("map_editor"))
+    {
+        var data = localStorage.getItem("map_data");
+        if (data != null)
+        {
+            var map_w = parseInt(localStorage.getItem("map_w"));
+            var map_h = parseInt(localStorage.getItem("map_h"));
+            var offset = 0;
+            mapData = [];
+            for (var i = 0; i < map_h; i++)
+            {
+                var l = data.substr(offset, map_w);
+                mapData.push(l);
+                offset += map_w;
+            }
+        }
+
+        data = localStorage.getItem("map_attributes");
+        if (data != null)
+        {
+            attributes = [];
+            data.split(",").forEach(function(elem) {
+                attributes.push(parseInt(elem));
+            });
+        }        
+    }
 }
 
 function draw(blocks, cast)
@@ -912,13 +972,72 @@ function draw(blocks, cast)
         ctx.fillRect(20, 320, 1000, height-300);
     }
     
-    camera.draw();
     map.draw(camera, blocks, cast);
 }
 
-</script>
+function registerMouseEvents(id)
+{
+    var elem = document.getElementById("ctrl_" + id);
 
-<canvas id="myCanvas"></canvas>
+    elem.onmousedown = function(event) {
+        onControls(event, id, true);
+    }
+
+    elem.onmouseup = function(event) {
+        onControls(event, id, false);
+    }
+
+    elem.onmouseover = function(event) {
+        onControls(event, id, event.buttons == 1);
+    }
+    
+    elem.onmouseleave = function(event) {
+        onControls(event, id, false);
+    }
+}
+
+function onControls(event, id, active)
+{
+    if (active)
+    {
+        keys[id] = true;
+    }
+    else
+    {
+        keys[id] = false;
+        keys_repeat[4] = false;
+    }
+}
+
+</script>
+<div>
+  <canvas id="myCanvas"></canvas>
+</div>
+<div class="game-status">
+  <div class="game-time-title">TIME</div>
+  <br>
+  <div class="game-time">00:00:00</div>
+  <br>
+  <br>
+  <br>
+  <div class="ctrl-arrow"></div>
+  <div id="ctrl_2">
+    <img draggable="false" class="img-up" src="img/arrow.png">
+  </div>
+  <div id="ctrl_4">
+    <img draggable="false" class="img-up" src="img/hit.png">
+  </div>
+  <br>
+  <div id="ctrl_0">
+    <img draggable="false" class="img-left" src="img/arrow.png">
+  </div>
+  <div id="ctrl_3">
+    <img draggable="false" class="img-down" src="img/arrow.png">
+  </div>
+  <div id="ctrl_1">
+    <img draggable="false" class="img-right" src="img/arrow.png">
+  </div>
+</div>
 
 <img style="display:none" id="tx_wall"              src="img/wall.png">
 <img style="display:none" id="tx_ournament"         src="img/ournament.png">
