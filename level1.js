@@ -1,3 +1,7 @@
+"use strict";
+
+// Kiky-maze (c) 2019 Matti Kantola apophis@kajaani.net
+
 var level1 = {
   "blocks": [
     "XHHHHHHXHHHHHHHHHHHHHHHHHHHHHHHX",
