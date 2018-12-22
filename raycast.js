@@ -2,8 +2,8 @@
 
 // Kiky-maze (c) 2019 Matti Kantola apophis@kajaani.net
 
-const DBGLEVEL = 1;
-const DISABLE_LOCKS = true;
+var DBGLEVEL = 1;
+var DISABLE_LOCKS = false;
 
 const COLLISION_MARGIN = 4;
 const RAY_MARGIN = 580;
