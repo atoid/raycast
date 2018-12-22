@@ -12,6 +12,13 @@ div {
 
 body {
     background-color: #000000;
+    overflow: hidden;
+}
+
+div.game-area {
+    width: 1300px;
+    height: 600px;
+    overflow: hidden;
 }
 
 div.game-status {

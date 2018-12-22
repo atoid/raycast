@@ -2,8 +2,8 @@
 
 // Kiky-maze (c) 2019 Matti Kantola apophis@kajaani.net
 
-const DBGLEVEL = 2;
-const DISABLE_LOCKS = false;
+const DBGLEVEL = 1;
+const DISABLE_LOCKS = true;
 
 const COLLISION_MARGIN = 4;
 const RAY_MARGIN = 580;
@@ -17,6 +17,10 @@ const MOVE_REV_SPEED = -3;
 const TURN_SPEED = (Math.PI/50);
 const NUM_RAYS = 500;
 const OFFSET_INTERACT_SAMPLES = 20;
+const CULL_NEAR_MARGIN = 150;
+const CULL_FAR_MARGIN = -9000;
+const CULL_SIDE_MARGIN = 600;
+const IN_FRONT_MARGIN = 0;
 
 var camera;
 var map;
@@ -38,6 +42,8 @@ var keysRepeat = [];
 var gameTime = "00:00:00";
 var gameStarted = false;
 var gameCompleted = false;
+var framesRender = 0;
+var frameTime = 0;
 
 //var width = window.innerWidth-20;
 //var height = Math.floor(1.0*window.innerHeight)-20;
@@ -87,7 +93,7 @@ function projectToLine(i, d)
 class Map {
     constructor(data, camera)
     {
-        console.log("Map()");
+        DBG("Map()", 1);
         
         this.blockSize = BLOCK_SIZE;
         
@@ -211,7 +217,7 @@ class Map {
             if (Math.abs(ray.value(b.center)) < RAY_MARGIN)
             {
                 var p = ray.intersectSquare(b); 
-                if (p)
+                if (camera.inFront(p))
                 {
                     p.block = b.block;
                     pt.unshift(p);
@@ -348,7 +354,7 @@ class Map {
 class Camera {
     constructor()
     {
-        console.log("Camera()");
+        DBG("Camera()", 1);
     
         this.numRays = NUM_RAYS;
         this.width = Math.PI / 6;
@@ -409,15 +415,24 @@ class Camera {
     
     cull(sq)
     {
-        if (this.frontCull.value(sq.center) <= -100)
+        if (this.frontCull.value(sq.center) <= CULL_NEAR_MARGIN)
         {
-            return this.frontCull.value(sq.center) >= -10000;
+            if (this.frontCull.value(sq.center) >= CULL_FAR_MARGIN)
+            {
+                if (this.leftCull.value(sq.center) > -CULL_SIDE_MARGIN)
+                {
+                    return this.rightCull.value(sq.center) < CULL_SIDE_MARGIN;
+                }
+            }
         }
-    
-        //if (this.leftCull.value(sq.center) >= 0)
-        //{
-        //    return this.rightCull.value(sq.center) <= 0;
-        //}
+    }
+
+    inFront(p)
+    {
+        if (p && this.frontCull.value(p) <= IN_FRONT_MARGIN)
+        {
+            return true;
+        }
     }
     
     initRays()
@@ -603,7 +618,7 @@ function interact_Panel(b)
         keys[4] = false;
         keysRepeat[4] = false;
 
-        DBG("Lock: " + tgtAttr.lock);
+        DBG("Lock: " + tgtAttr.lock, 2);
     });
 }
 
@@ -834,6 +849,7 @@ function beginGame()
         gameStarted = true;
         gameCompleted = false;
         gameTime = new Date();
+        frameTime = new Date();
     }
 }
 
@@ -852,7 +868,7 @@ function getTimeStr(d)
 
 function gameInit()
 {
-    console.log("Params: " + document.location.hash);
+    DBG("Params: " + document.location.hash, 1);
     var params = document.location.hash.substr(1).split(":");
     for (var i in params)
     {
@@ -885,7 +901,8 @@ function gameInit()
     
     setInterval(function() {
         draw(false, true);
-    }, 20);
+        framesRender++;
+    }, 30);
 
     setInterval(function() {
         if (gameStarted && !gameCompleted)
@@ -894,6 +911,10 @@ function gameInit()
             var d = new Date(now - gameTime);
             var elem = document.getElementById("game_time");
             elem.innerHTML = getTimeStr(d);
+        
+            DBG("Frames rendered: " + framesRender + ", time(ms):" + ((now-frameTime) / framesRender).toFixed(1), 2);
+            framesRender = 0;
+            frameTime = now;
         }
     }, 500);
     
@@ -1027,5 +1048,5 @@ function gameInit()
     registerMouseEvents(3);
     registerMouseEvents(4);
     
-    console.log("Init complete");
+    DBG("Init complete", 1);
 }
