@@ -432,7 +432,7 @@ function saveAsJson(filename)
     var a = document.createElement("a"),
             url = URL.createObjectURL(blob);
     a.href = url;
-    a.download = filename;
+    a.download = filename + ".js";
     document.body.appendChild(a);
     a.click();
     setTimeout(function() {

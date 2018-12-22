@@ -1027,6 +1027,11 @@ function gameInit()
     textures[11]= {tx: document.getElementById("tx_pete"), mask: document.getElementById("tx_wall_mask")};
     textures[12]= {tx: document.getElementById("tx_humg"), mask: document.getElementById("tx_wall_mask")};
     textures[13]= {tx: document.getElementById("tx_hudson"), mask: document.getElementById("tx_wall_mask")};
+    textures[14]= {tx: document.getElementById("tx_codes1"), mask: document.getElementById("tx_wall_mask")};
+    textures[15]= {tx: document.getElementById("tx_codes2"), mask: document.getElementById("tx_wall_mask")};
+    textures[16]= {tx: document.getElementById("tx_jussi"), mask: document.getElementById("tx_wall_mask")};
+    textures[17]= {tx: document.getElementById("tx_pomot"), mask: document.getElementById("tx_wall_mask")};
+    textures[18]= {tx: document.getElementById("tx_mka"), mask: document.getElementById("tx_wall_mask")};
 
     samples[1] = {snd: document.getElementById("snd_wind"), volume: 0.1, loop: true};
     samples[2] = {snd: document.getElementById("snd_door"), volume: 0.7};
