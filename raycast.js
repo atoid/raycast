@@ -16,6 +16,7 @@ const MOVE_FWD_SPEED = 3;
 const MOVE_REV_SPEED = -3;
 const TURN_SPEED = (Math.PI/50);
 const NUM_RAYS = 500;
+const OFFSET_INTERACT_SAMPLES = 20;
 
 var camera;
 var map;
@@ -29,7 +30,8 @@ var interacts = [
     interact_Panel,
     interact_Secret,
     interact_Item,
-    interact_End
+    interact_End,
+    interact_Audio
 ];
 var keys = [];
 var keysRepeat = [];
@@ -99,7 +101,7 @@ class Map {
             texture: attr & 0xff,
             target: (attr >> 8) & 0xfff,
             interact: interacts[(attr >> 20) & 0xf],
-            tbd: (attr >> 24) & 0xf,
+            params: (attr >> 24) & 0xf,
             lock: DISABLE_LOCKS ? 0 : (attr >> 28) & 0xf
         }   
     }
@@ -675,6 +677,15 @@ function interact_End(b)
     }
 }
 
+function interact_Audio(b)
+{
+    DBG("Audio access", 2);
+
+    var attr = b.block.attr;
+    var id = attr.params + OFFSET_INTERACT_SAMPLES;
+    playSample(id);
+}
+
 function moveCamera(r, angle)
 {
     var nx = camera.xPos + Math.cos(angle) * r;
@@ -991,6 +1002,10 @@ function gameInit()
     textures[7] = {tx: document.getElementById("tx_code_ok"), mask: document.getElementById("tx_wall_mask"), alt: 7, default: 8};
     textures[8] = {tx: document.getElementById("tx_code_fail"), mask: document.getElementById("tx_wall_mask"), alt: 7, default: 8};
     textures[9] = {tx: document.getElementById("tx_avain"), mask: document.getElementById("tx_avain_mask"), pass: true};
+    textures[10]= {tx: document.getElementById("tx_tl3"), mask: document.getElementById("tx_wall_mask")};
+    textures[11]= {tx: document.getElementById("tx_pete"), mask: document.getElementById("tx_wall_mask")};
+    textures[12]= {tx: document.getElementById("tx_humg"), mask: document.getElementById("tx_wall_mask")};
+    textures[13]= {tx: document.getElementById("tx_hudson"), mask: document.getElementById("tx_wall_mask")};
 
     samples[1] = {snd: document.getElementById("snd_wind"), volume: 0.1, loop: true};
     samples[2] = {snd: document.getElementById("snd_door"), volume: 0.7};
@@ -999,6 +1014,12 @@ function gameInit()
     samples[5] = {snd: document.getElementById("snd_secret"), volume: 0.6};
     samples[6] = {snd: document.getElementById("snd_item"), volume: 0.6};
     samples[7] = {snd: document.getElementById("snd_end"), volume: 0.6};
+
+    samples[20] = {snd: document.getElementById("snd_0"), volume: 0.6};
+    samples[21] = {snd: document.getElementById("snd_1"), volume: 0.6};
+    samples[22] = {snd: document.getElementById("snd_2"), volume: 0.6};
+    samples[23] = {snd: document.getElementById("snd_3"), volume: 0.6};
+    samples[24] = {snd: document.getElementById("snd_4"), volume: 0.6};
     
     registerMouseEvents(0);
     registerMouseEvents(1);
