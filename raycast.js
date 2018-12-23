@@ -3,7 +3,6 @@
 // Kiky-maze (c) 2019 Matti Kantola apophis@kajaani.net
 
 var DBGLEVEL = 1;
-var DISABLE_LOCKS = false;
 
 const COLLISION_MARGIN = 4;
 const RAY_MARGIN = 580;
@@ -16,6 +15,7 @@ const MOVE_FWD_SPEED = 3;
 const MOVE_REV_SPEED = -3;
 const TURN_SPEED = (Math.PI/50);
 const NUM_RAYS = 500;
+const DEV_MODE = false;
 const OFFSET_INTERACT_SAMPLES = 20;
 const CULL_NEAR_MARGIN = 150;
 const CULL_FAR_MARGIN = -9000;
@@ -90,10 +90,10 @@ function projectToLine(i, d)
     }
 }
 
-class Map {
+class GameMap {
     constructor(data, camera)
     {
-        DBG("Map()", 1);
+        DBG("GameMap()", 1);
         
         this.blockSize = BLOCK_SIZE;
         
@@ -108,7 +108,7 @@ class Map {
             target: (attr >> 8) & 0xfff,
             interact: interacts[(attr >> 20) & 0xf],
             params: (attr >> 24) & 0xf,
-            lock: DISABLE_LOCKS ? 0 : (attr >> 28) & 0xf
+            lock: DEV_MODE ? 0 : (attr >> 28) & 0xf
         }   
     }
     
@@ -291,10 +291,10 @@ class Map {
     {
         for (var b of this.blocks)
         {
-            let p0 = project({x: b.l1.x, y: b.l3.y});
-            let p1 = project({x: b.l2.x, y: b.l3.y});
-            let p2 = project({x: b.l2.x, y: b.l4.y});
-            let p3 = project({x: b.l1.x, y: b.l4.y});
+            var p0 = project({x: b.l1.x, y: b.l3.y});
+            var p1 = project({x: b.l2.x, y: b.l3.y});
+            var p2 = project({x: b.l2.x, y: b.l4.y});
+            var p3 = project({x: b.l1.x, y: b.l4.y});
             this.drawLine(p0, p1, b.l3.ray);
             this.drawLine(p1, p2, b.l2.ray);
             this.drawLine(p2, p3, b.l4.ray);
@@ -396,16 +396,6 @@ class Camera {
         this.makeCullLines();
     }
         
-    compRight(l, pt)
-    {
-        return l.value(pt) <= 0;
-    }
-    
-    compRight(l, pt)
-    {
-        return l.value(pt) >= 0;
-    }
-    
     makeCullLines()
     {
         this.leftCull = new Line(this.po, this.pl);
@@ -463,9 +453,9 @@ class Camera {
     
     draw()
     {
-        let p0 = project(this.pl);
-        let p1 = project(this.pr);
-        let p2 = project(this.po);
+        var p0 = project(this.pl);
+        var p1 = project(this.pr);
+        var p2 = project(this.po);
 
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y);
@@ -890,7 +880,7 @@ function gameInit()
     
     camera = new Camera();
     getLevel();
-    map = new Map(mapData, camera);
+    map = new GameMap(mapData, camera);
     
     var angle = 0;
 
