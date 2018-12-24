@@ -6,7 +6,16 @@ canvas {
 }
 
 div {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
     display: inline-block;
+}
+
+img {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    pointer-events: none;
     user-select: none;
 }
 

@@ -11,9 +11,9 @@ const BLOCK_SIZE = 20;
 const TEXTURE_SIZE = 512;
 const NEAR_MARGIN = 400;
 const INTERACT_MARGIN = 300;
-const MOVE_FWD_SPEED = 3;
-const MOVE_REV_SPEED = -3;
-const TURN_SPEED = (Math.PI/50);
+const MOVE_FWD_SPEED = 2.5;
+const MOVE_REV_SPEED = -2.5;
+const TURN_SPEED = (Math.PI/60);
 const NUM_RAYS = 500;
 const DEV_MODE = false;
 const OFFSET_INTERACT_SAMPLES = 20;
@@ -44,6 +44,7 @@ var gameStarted = false;
 var gameCompleted = false;
 var framesRender = 0;
 var frameTime = 0;
+var inMobile = navigator.userAgent.match(/Android/i);
 
 //var width = window.innerWidth-20;
 //var height = Math.floor(1.0*window.innerHeight)-20;
@@ -800,24 +801,41 @@ function registerMouseEvents(id)
 {
     var elem = document.getElementById("ctrl_" + id);
 
-    elem.onmousedown = function(event) {
-        onControls(event, id, true);
-    }
+    if (!inMobile)
+    {
+        elem.onmousedown = function(event) {
+            onControls(id, true);
+        }
 
-    elem.onmouseup = function(event) {
-        onControls(event, id, false);
-    }
+        elem.onmouseup = function(event) {
+            onControls(id, false);
+        }
 
-    elem.onmouseover = function(event) {
-        onControls(event, id, event.buttons == 1);
+        elem.onmouseover = function(event) {
+            onControls(id, event.buttons == 1);
+        }
+        
+        elem.onmouseleave = function(event) {
+            onControls(id, false);
+        }
     }
-    
-    elem.onmouseleave = function(event) {
-        onControls(event, id, false);
+    else
+    {
+        elem.addEventListener("touchstart", function() {
+            onControls(id, true);
+        });
+
+        elem.addEventListener("touchend", function() {
+            onControls(id, false);
+        });
+
+        elem.addEventListener("touchcancel", function() {
+            onControls(id, false);
+        });
     }
 }
 
-function onControls(event, id, active)
+function onControls(id, active)
 {
     if (active)
     {
@@ -883,17 +901,17 @@ function gameInit()
     map = new GameMap(mapData, camera);
     
     var angle = 0;
-
-    setInterval(function() {
-        handleInputs();
-        camera.rotate(angle);
-    }, 50);
     
     setInterval(function() {
         draw(false, true);
         framesRender++;
     }, 30);
 
+    setInterval(function() {
+        handleInputs();
+        camera.rotate(angle);
+    }, 35);
+    
     setInterval(function() {
         if (gameStarted && !gameCompleted)
         {
