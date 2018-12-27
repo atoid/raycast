@@ -15,7 +15,7 @@ const MOVE_FWD_SPEED = 2.5;
 const MOVE_REV_SPEED = -2.5;
 const TURN_SPEED = (Math.PI/60);
 const NUM_RAYS = 500;
-const DEV_MODE = false;
+const DEV_MODE = 0;
 const OFFSET_INTERACT_SAMPLES = 20;
 const CULL_NEAR_MARGIN = 150;
 const CULL_FAR_MARGIN = -9000;
@@ -603,7 +603,7 @@ function interact_Panel(b)
             tgtAttr.lock++;
         }
 
-        addMessage(code == codeOk ? "Oikea koodi" : "V‰‰r‰ koodi");
+        addMessage(code == codeOk ? "Oikea koodi" : "V&auml;&auml;r&auml; koodi");
 
         // prompt steals focus
         keys[4] = false;
@@ -635,7 +635,7 @@ function interact_Secret(b)
                 clearInterval(iv);
             }
         }, 50);
-        addMessage("Salak‰yt‰v‰!");
+        addMessage("Salak&auml;yt&auml;v&auml;!");
     }
     else
     {
