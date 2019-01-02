@@ -2,6 +2,12 @@
 
 // Kiky-maze (c) 2019 Matti Kantola apophis@kajaani.net
 
+// ==ClosureCompiler==
+// @compilation_level SIMPLE_OPTIMIZATIONS
+// @output_file_name raycast.min.js
+// @language_out ECMASCRIPT6
+// ==/ClosureCompiler==
+
 var DBGLEVEL = 1;
 
 const COLLISION_MARGIN = 4;
