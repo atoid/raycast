@@ -53,6 +53,7 @@ var height = 600;
 var ctx;
 var floorGradient;
 var ceilingGradient;
+var lastFps = 0;
 
 function DBG(m, level)
 {
@@ -279,45 +280,10 @@ class GameMap {
         });
     }
     
-    drawLine(p0, p1, ray)
-    {
-        ctx.strokeStyle = (ray == 0) ? "#444444" : "#ffffff";
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.stroke();
-    }
-
-    drawBlocks(b)
-    {
-        for (var b of this.blocks)
-        {
-            var p0 = project({x: b.l1.x, y: b.l3.y});
-            var p1 = project({x: b.l2.x, y: b.l3.y});
-            var p2 = project({x: b.l2.x, y: b.l4.y});
-            var p3 = project({x: b.l1.x, y: b.l4.y});
-            this.drawLine(p0, p1, b.l3.ray);
-            this.drawLine(p1, p2, b.l2.ray);
-            this.drawLine(p2, p3, b.l4.ray);
-            this.drawLine(p3, p0, b.l1.ray);
-        }
-    }
-    
-    draw(camera, blocks, cast)
+    draw(camera)
     {
         this.visible = this.doCull(camera);
         this.sortBlocks(this.visible);
-
-        if (blocks)
-        {
-            this.drawBlocks();
-            camera.draw();
-        }   
-
-        if (!cast)
-        {
-            return;
-        }
         
         camera.initRays();       
         //console.time("raycast");
@@ -450,20 +416,6 @@ class Camera {
             this.rayIndex++;
             return res;
         }
-    }
-    
-    draw()
-    {
-        var p0 = project(this.pl);
-        var p1 = project(this.pr);
-        var p2 = project(this.po);
-
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.lineTo(p0.x, p0.y);
-        ctx.stroke();
     }
 }
 
@@ -780,21 +732,21 @@ function getLevel()
     }
 }
 
-function draw(blocks, cast)
+function draw()
 {
     ctx.clearRect(0, 0, width, height);
     ctx.strokeStyle = "#ffffff";
     
-    if (cast)
-    {
-        ctx.fillStyle = ceilingGradient;
-        ctx.fillRect(20, 0, 1000, 300);
-        
-        ctx.fillStyle = floorGradient;
-        ctx.fillRect(20, 320, 1000, height-300);
-    }
+    ctx.fillStyle = ceilingGradient;
+    ctx.fillRect(20, 0, 1000, 300);
     
-    map.draw(camera, blocks, cast);
+    ctx.fillStyle = floorGradient;
+    ctx.fillRect(20, 320, 1000, height-300);
+    
+    map.draw(camera);
+
+    ctx.fillStyle = "#fff";
+    ctx.fillText("FPS: " + lastFps, 30, 20);
 }
 
 function registerMouseEvents(id)
@@ -888,6 +840,8 @@ function gameInit()
     elem.height = height;
     ctx = elem.getContext("2d");
     
+    ctx.font = "16px Arial";
+    
     ceilingGradient = ctx.createLinearGradient(0, 0, 0, 300);
     ceilingGradient.addColorStop(0, "blue");
     ceilingGradient.addColorStop(0.9, "black");
@@ -903,7 +857,7 @@ function gameInit()
     var angle = 0;
     
     setInterval(function() {
-        draw(false, true);
+        draw();
         framesRender++;
     }, 30);
 
@@ -913,17 +867,18 @@ function gameInit()
     }, 35);
     
     setInterval(function() {
+        var now = new Date();
         if (gameStarted && !gameCompleted)
         {
-            var now = new Date();
             var d = new Date(now - gameTime);
             var elem = document.getElementById("game_time");
             elem.innerHTML = getTimeStr(d);
-        
-            DBG("Frames rendered: " + framesRender + ", time(ms):" + ((now-frameTime) / framesRender).toFixed(1), 2);
-            framesRender = 0;
-            frameTime = now;
         }
+        
+        DBG("Frames rendered: " + framesRender + ", time(ms):" + ((now-frameTime) / framesRender).toFixed(1), 2);
+        lastFps = framesRender * 2;
+        framesRender = 0;
+        frameTime = now;
     }, 500);
     
     function handleInputs()
